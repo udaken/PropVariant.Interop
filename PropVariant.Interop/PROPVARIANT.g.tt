@@ -1,0 +1,88 @@
+﻿<#@ template debug="false" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ output extension=".cs" #>
+
+
+<# var table = new [] {
+//                               vector byref  stored
+("I1",               "SByte",    true,  true,  true,  null),
+("I2",               "Int16",    true,  true,  true,  null),
+("I4",               "Int32",    true,  true,  true,  "Int"),
+("I8",               "Int64",    true,  true,  true,  null),
+("UI1",              "Byte",     true,  true,  true,  null),
+("UI2",              "UInt16",   true,  true,  true,  null),
+("UI4",              "UInt32",   true,  true,  true,  "UInt"),
+("UI8",              "UInt64",   true,  true,  true,  null),
+("R4",               "Single",   true,  true,  true,  null),
+("R8",               "Double",   true,  true,  true,  null),
+("Bool",             "Bool",     true,  true , true,  null),
+("Currency",         "Currency", true,  true,  true,  null),
+("Date",             "Date",     true,  true,  true,  null),
+("Error",            "Error",    true,  true,  true,  null),
+("Decimal",          "Decimal",  false, true , false, null),
+("IntPtr",           "IntPtr",   false, false, true,  null),
+("Clsid",            "Guid",     true,  false, false, null),
+("ClipboardFormat",  "CLIPDATA", true,  false, false, null),
+}; #>
+
+using System;
+using System.Runtime.InteropServices.ComTypes;
+using System.Runtime.CompilerServices;
+
+namespace PropVarinatInterop;
+<# foreach(var (vt , bclType, vector, byref, stored, alias) in table) { #>
+unsafe partial struct PROPVARIANT 
+{
+<# if(vector) { #>
+    public readonly Span< <#= bclType #> > GetVector<#= bclType #>()
+    {
+        if(VarType is VarType.Vector<#= vt #>
+            <# if( alias != null) { #> or VarType.<#= alias #> <# } #>
+            )
+        {
+            return VectorAsArray< <#= bclType #> >();
+        }
+        else
+        {
+            throw new NotSupportedException();
+        }
+    }
+<# } #>
+<# if(byref) { #>
+    public readonly ref <#= bclType #> GetByRef<#= bclType #>()
+    {
+        if(VarType is VarType.ByRef<#= vt #>
+            <# if( alias != null) { #> or VarType.<#= alias #> <# } #>
+            )
+        {
+            return ref Unsafe.AsRef< <#= bclType #> >((void*)variantValue.IntPtr);
+        }
+        else
+        {
+            throw new NotSupportedException();
+        }
+    }
+<# } #>
+<# if(stored) { #>
+    public readonly bool TryRead<#= bclType #>(out <#= bclType #> value)
+    {
+        if(VarType is VarType.<#= vt #>
+            <# if( alias != null) { #> or VarType.<#= alias #> <# } #>
+            )
+        {
+            value = variantValue.<#= vt #>;
+            return true;
+        }
+        else
+        {
+            value = default;
+            return false;
+        }
+    }
+<# } #>
+}
+
+<# } #>
